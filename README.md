@@ -40,3 +40,18 @@ If you love the idea of stocknear and want to support our mission you can help u
 
 - Become a [Pro Member](https://stocknear.com/pricing) of stocknear to get unlimited feature access to enjoy the platform to the fullest.
 - You can sponsor us via [Github](https://github.com/sponsors/stocknear) to help us pay the servers & data providers to keep everything running!
+
+# Building
+
+You can build a container with the code in this repo by running
+`make docker-build`
+
+It will take the local version of the code (with your changes in, if any) and use it.
+To start the container, run `make docker-run`
+
+In case you built the container and wants to access its shell for debugging, you can do so with `make docker-bash`
+
+# Issues
+
+- Code currently relies on a bunch of environment variables, which need to be mapped somewhere (and provide descriptive errors if they are missing)
+- It is assumed in the code that the DB is local. That doesnt scale for any serious application, so probably could use some refactoring it to allow remote data storage
