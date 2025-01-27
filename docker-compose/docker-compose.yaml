@@ -1,0 +1,19 @@
+services:
+  backend:
+    image: stocknear:latest
+    build: ../
+    ports:
+      - "443:8043"
+    networks:
+      - backend
+      - redis
+  redis:
+    image: redis:7.4-bookworm
+    ports:
+      - "6379:6379"
+    networks:
+      - redis
+networks:
+  # The presence of these objects is sufficient to define them
+  backend: {}
+  redis: {}

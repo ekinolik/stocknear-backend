@@ -12,3 +12,13 @@ docker-bash:
 .PHONY: docker-run
 docker-run:
 	@docker run stocknear:latest
+
+# bring up backend and external rependencies (e.g: redis)
+.PHONY: compose
+compose:
+	@docker-compose -f docker-compose/docker-compose.yaml up
+
+# stop containers
+.PHONY: compose-down
+compose-down:
+	@docker-compose -f docker-compose/docker-compose.yaml down
