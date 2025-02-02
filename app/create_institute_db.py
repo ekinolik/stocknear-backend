@@ -14,6 +14,8 @@ import warnings
 from dotenv import load_dotenv
 import os
 import re
+from data_providers.fetcher import get_fetcher
+from data_providers.impl.fmp import FinancialModelingPrep
 
 # Filter out the specific RuntimeWarning
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid value encountered in scalar divide")
@@ -22,9 +24,9 @@ def normalize_name(name):
     return re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', name.lower())).strip()
 
 
-con = sqlite3.connect('stocks.db')
-etf_con = sqlite3.connect('etf.db')
-crypto_con = sqlite3.connect('crypto.db')
+con = sqlite3.connect('backup_db/stocks.db')
+etf_con = sqlite3.connect('backup_db/etf.db')
+crypto_con = sqlite3.connect('backup_db/crypto.db')
 
 cursor = con.cursor()
 cursor.execute("PRAGMA journal_mode = wal")
@@ -63,6 +65,7 @@ crypto_con.close()
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 quarter_date = '2024-09-30'
+fmp = FinancialModelingPrep(get_fetcher(json_mode=True), api_key)
 
 
 
@@ -133,43 +136,37 @@ class InstituteDatabase:
     async def save_portfolio_data(self, session, cik):
         try:
             # Fetch summary data
-            summary_url = f"https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings-summary?cik={cik}&page=0&apikey={api_key}"
-            async with session.get(summary_url) as response:
-                summary_data = await response.text()
-                summary_parsed_data = get_jsonparsed_data(summary_data)
+            summary_parsed_data = await fmp.get_portfolio_holdings_summary(cik)
 
             portfolio_data = {}
             holdings_data = []
 
             # Fetch paginated holdings data
             for page in range(0,100):
-                holdings_url = f"https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings?cik={cik}&date={quarter_date}&page={page}&apikey={api_key}"
-                async with session.get(holdings_url) as response:
-                    data = await response.text()
-                    parsed_data = get_jsonparsed_data(data)
+                parsed_data = await fmp.get_portfolio_holdings(cik, quarter_date, page)
 
-                    if not parsed_data:  # Stop if no more data
-                        break
+                if not parsed_data:  # Stop if no more data
+                    break
 
-                    if isinstance(parsed_data, list):
-                        for item in parsed_data:
-                            if item['symbol'] is None:
-                                normalized_security_name = normalize_name(item['securityName'])
-                                if normalized_security_name in stock_dict:
-                                    item['symbol'] = stock_dict[normalized_security_name]
-                                elif normalized_security_name in etf_dict:
-                                    item['symbol'] = etf_dict[normalized_security_name]
+                if isinstance(parsed_data, list):
+                    for item in parsed_data:
+                        if item['symbol'] is None:
+                            normalized_security_name = normalize_name(item['securityName'])
+                            if normalized_security_name in stock_dict:
+                                item['symbol'] = stock_dict[normalized_security_name]
+                            elif normalized_security_name in etf_dict:
+                                item['symbol'] = etf_dict[normalized_security_name]
 
-                        parsed_data = [
-                            {**item, 'type': ('stocks' if item['symbol'] in stock_symbols else
-                                              'crypto' if item['symbol'] in crypto_symbols else
-                                              'etf' if item['symbol'] in etf_symbols else None)}
-                            for item in parsed_data
-                            if 'symbol' in item and item['symbol'] is not None and item['symbol'] in total_symbols
-                        ]
+                    parsed_data = [
+                        {**item, 'type': ('stocks' if item['symbol'] in stock_symbols else
+                                            'crypto' if item['symbol'] in crypto_symbols else
+                                            'etf' if item['symbol'] in etf_symbols else None)}
+                        for item in parsed_data
+                        if 'symbol' in item and item['symbol'] is not None and item['symbol'] in total_symbols
+                    ]
 
-                        holdings_data.extend(parsed_data)
-                        portfolio_data['holdings'] = json.dumps(holdings_data)
+                    holdings_data.extend(parsed_data)
+                    portfolio_data['holdings'] = json.dumps(holdings_data)
 
             if not holdings_data:
                 self.cursor.execute("DELETE FROM institutes WHERE cik = ?", (cik,))
@@ -274,20 +271,11 @@ class InstituteDatabase:
             if tasks:
                 await asyncio.gather(*tasks)
 
-        
-url = f"https://financialmodelingprep.com/api/v4/institutional-ownership/list?apikey={api_key}"
-
-
-async def fetch_tickers():
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            data = await response.text()
-            return get_jsonparsed_data(data)
 
 
 db = InstituteDatabase('backup_db/institute.db')
 loop = asyncio.get_event_loop()
-all_tickers = loop.run_until_complete(fetch_tickers())
+all_tickers = loop.run_until_complete(fmp.list_institutional_ownership())
 #all_tickers = [{'cik': '0001364742', 'name': "GARDA CAPITAL PARTNERS LP"}]
 loop.run_until_complete(db.save_insitute(all_tickers))
 db.close_connection()

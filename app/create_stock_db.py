@@ -17,8 +17,12 @@ import warnings
 
 from dotenv import load_dotenv
 import os
+from data_providers.fetcher import get_fetcher
+from data_providers.impl.fmp import FinancialModelingPrep
+
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
+fmp = FinancialModelingPrep(get_fetcher(json_mode=True), api_key)
 
 # Filter out the specific RuntimeWarning
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid value encountered in scalar divide")
@@ -64,6 +68,7 @@ class StockDatabase:
             type TEXT
         )
         """)
+        self.conn.commit()
 
 
     def get_column_type(self, value):
@@ -96,93 +101,115 @@ class StockDatabase:
 
 
     async def save_fundamental_data(self, session, symbol):
+
         try:
-            urls = [
-                f"https://financialmodelingprep.com/api/v3/profile/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/{symbol}?limit=400&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/historical/employee_count?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_split/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/stock_peers?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date={quarter_date}&symbol={symbol}&page=0&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/historical/shares_float?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/revenue-product-segmentation?symbol={symbol}&structure=flat&period=annual&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/revenue-geographic-segmentation?symbol={symbol}&structure=flat&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/analyst-estimates/{symbol}?apikey={api_key}",
+
+            methods = [
+                {
+                    'method': lambda: fmp.get_company_profile(symbol),
+                    'key': 'profile'
+                },
+                {
+                    'method': lambda: fmp.get_quote(symbol),
+                    'key': 'quote'
+                },
+                {
+                    'method': lambda: fmp.get_stock_dividend(symbol),
+                    'key': 'stock_dividend'
+                },
+                {
+                    'method': lambda: fmp.get_employee_count(symbol),
+                    'key': 'employee_count'
+                },
+                {
+                    'method': lambda: fmp.get_stock_split(symbol),
+                    'key': 'stock_split'
+                },
+                {
+                    'method': lambda: fmp.get_stock_peers(symbol),
+                    'key': 'stock_peers'
+                },
+                {
+                    'method': lambda: fmp.get_institutional_holders(symbol, quarter_date),
+                    'key': 'institutional_holders'
+                },
+                {
+                    'method': lambda: fmp.get_revenue_product_segmentation(symbol),
+                    'key': 'revenue_product_segmentation'
+                },
+                {
+                    'method': lambda: fmp.get_revenue_geographic_segmentation(symbol),
+                    'key': 'revenue_geographic_segmentation'
+                },
+                {
+                    'method': lambda: fmp.get_analyst_estimates(symbol),
+                    'key': 'analyst_estimates'
+                },
             ]
 
             fundamental_data = {}
 
 
-            for url in urls:
+            for method in methods:
+                parsed_data = await method['method']()
 
-                async with session.get(url) as response:
-                    data = await response.text()
-                    parsed_data = get_jsonparsed_data(data)
+                try:
+                    if isinstance(parsed_data, list) and method['key'] == 'profile':
+                        # Handle list response, save as JSON object
+                        fundamental_data['profile'] = ujson.dumps(parsed_data)
+                        data_dict = {
+                                    'beta': parsed_data[0]['beta'],
+                                    'country': parsed_data[0]['country'],
+                                    'sector': parsed_data[0]['sector'],
+                                    'industry': parsed_data[0]['industry'],
+                                    'discounted_cash_flow': round(parsed_data[0]['dcf'],2),
+                                    }
+                        fundamental_data.update(data_dict)
 
-                    try:
-                        if isinstance(parsed_data, list) and "profile" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['profile'] = ujson.dumps(parsed_data)
-                            data_dict = {
-                                        'beta': parsed_data[0]['beta'],
-                                        'country': parsed_data[0]['country'],
-                                        'sector': parsed_data[0]['sector'],
-                                        'industry': parsed_data[0]['industry'],
-                                        'discounted_cash_flow': round(parsed_data[0]['dcf'],2),
-                                        }
-                            fundamental_data.update(data_dict)
-
-                        elif isinstance(parsed_data, list) and "quote" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['quote'] = ujson.dumps(parsed_data)
-                            data_dict = {
-                                        'price': parsed_data[0]['price'],
-                                        'changesPercentage': round(parsed_data[0]['changesPercentage'],2),
-                                        'marketCap': parsed_data[0]['marketCap'],
-                                        'volume': parsed_data[0]['volume'],
-                                        'avgVolume': parsed_data[0]['avgVolume'],
-                                        'eps': parsed_data[0]['eps'],
-                                        'pe': parsed_data[0]['pe'],
-                                        }
-                            fundamental_data.update(data_dict)
-
-                        elif isinstance(parsed_data, list) and "sector-benchmark" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['esg_sector_benchmark'] = ujson.dumps(parsed_data)
-
-                            fundamental_data.update(data_dict)
-                       
-                        elif "stock_dividend" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['stock_dividend'] = ujson.dumps(parsed_data)
-                        elif "employee_count" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['history_employee_count'] = ujson.dumps(parsed_data)
-                        elif "stock_split" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['stock_split'] = ujson.dumps(parsed_data['historical'])
-                        elif "stock_peers" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['stock_peers'] = ujson.dumps([item for item in parsed_data[0]['peersList'] if item != ""])
-                        elif "institutional-ownership/institutional-holders" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['shareholders'] = ujson.dumps(parsed_data)
-                        elif "historical/shares_float" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['historicalShares'] = ujson.dumps(parsed_data)
-                        elif "revenue-product-segmentation" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['revenue_product_segmentation'] = ujson.dumps(parsed_data)
-                        elif "revenue-geographic-segmentation" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['revenue_geographic_segmentation'] = ujson.dumps(parsed_data)
-                        elif "analyst-estimates" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['analyst_estimates'] = ujson.dumps(parsed_data)
-                    except Exception as e:
-                        print(e)
-                        pass
+                    elif isinstance(parsed_data, list) and method['key'] == 'quote':
+                        # Handle list response, save as JSON object
+                        fundamental_data['quote'] = ujson.dumps(parsed_data)
+                        data_dict = {
+                                    'price': parsed_data[0]['price'],
+                                    'changesPercentage': round(parsed_data[0]['changesPercentage'],2),
+                                    'marketCap': parsed_data[0]['marketCap'],
+                                    'volume': parsed_data[0]['volume'],
+                                    'avgVolume': parsed_data[0]['avgVolume'],
+                                    'eps': parsed_data[0]['eps'],
+                                    'pe': parsed_data[0]['pe'],
+                                    }
+                        fundamental_data.update(data_dict)
+                    
+                    elif method['key'] == 'stock_dividend':
+                        # Handle list response, save as JSON object
+                        fundamental_data['stock_dividend'] = ujson.dumps(parsed_data)
+                    elif method['key'] == 'employee_count':
+                        # Handle list response, save as JSON object
+                        fundamental_data['history_employee_count'] = ujson.dumps(parsed_data)
+                    elif method['key'] == 'stock_split':
+                        # Handle list response, save as JSON object
+                        fundamental_data['stock_split'] = ujson.dumps(parsed_data['historical'])
+                    elif method['key'] == 'stock_peers':
+                        # Handle list response, save as JSON object
+                        fundamental_data['stock_peers'] = ujson.dumps([item for item in parsed_data[0]['peersList'] if item != ""])
+                    elif method['key'] == 'institutional_holders':
+                        # Handle list response, save as JSON object
+                        fundamental_data['shareholders'] = ujson.dumps(parsed_data)
+                    elif method['key'] == 'shares_float':
+                        # Handle list response, save as JSON object
+                        fundamental_data['historicalShares'] = ujson.dumps(parsed_data)
+                    elif method['key'] == 'revenue_product_segmentation':
+                        # Handle list response, save as JSON object
+                        fundamental_data['revenue_product_segmentation'] = ujson.dumps(parsed_data)
+                    elif method['key'] == 'revenue_geographic_segmentation':
+                        # Handle list response, save as JSON object
+                        fundamental_data['revenue_geographic_segmentation'] = ujson.dumps(parsed_data)
+                    elif method['key'] == 'analyst_estimates':
+                        # Handle list response, save as JSON object
+                        fundamental_data['analyst_estimates'] = ujson.dumps(parsed_data)
+                except Exception as e:
+                    print(e)
+                    pass
 
 
             # Check if columns already exist in the table
@@ -203,7 +230,6 @@ class StockDatabase:
                 self.cursor.execute(f"UPDATE stocks SET {column} = ? WHERE symbol = ?", (value, symbol))
 
             self.conn.commit()
-
         except Exception as e:
             print(f"Failed to fetch fundamental data for symbol {symbol}: {str(e)}")
 
@@ -301,11 +327,8 @@ class StockDatabase:
             self._create_ticker_table(symbol)  # Ensure the table exists
 
             # Fetch OHLC data from the API
-            url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?serietype=bar&from={start_date}&apikey={api_key}"
-            async with session.get(url) as response:
-                data = await response.text()
-            
-            ohlc_data = get_jsonparsed_data(data)
+            ohlc_data = await fmp.get_historical_price_full(symbol, start_date, end_date)
+
             if 'historical' in ohlc_data:
                 historical_data = ohlc_data['historical'][::-1]
 
@@ -338,19 +361,9 @@ class StockDatabase:
 
 
 
-url = f"https://financialmodelingprep.com/api/v3/available-traded/list?apikey={api_key}"
-
-
-async def fetch_tickers():
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            data = await response.text()
-            return get_jsonparsed_data(data)
-
-
 db = StockDatabase('backup_db/stocks.db')
 loop = asyncio.get_event_loop()
-all_tickers = loop.run_until_complete(fetch_tickers())
+all_tickers = loop.run_until_complete(fmp.list_available_traded())
 all_tickers = [item for item in all_tickers if '-' not in item['symbol'] or item['symbol'] in ['BRK-A', 'BRK-B']]
 
 

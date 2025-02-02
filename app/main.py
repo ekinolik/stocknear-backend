@@ -40,6 +40,7 @@ from slowapi.errors import RateLimitExceeded
 from functools import partial
 from datetime import datetime
 from utils.helper import load_latest_json
+import uvicorn
 
 # DB constants & context manager
 
@@ -4306,3 +4307,6 @@ async def get_newsletter():
     except:
         res = []
     return res
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

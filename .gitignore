@@ -18,3 +18,10 @@ helper.txt
 env/*
 app/ml_models/weights
 app/utils/__pycache__
+app/data_providers/__pycache__
+app/data_providers/impl/__pycache__
+app/data_providers/mocks/__pycache__
+app/db/__pycache__
+.env
+**/*.db
+**/*DS_Store
