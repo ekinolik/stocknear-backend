@@ -1,6 +1,28 @@
+import json
 from db import DBClass
 
 class StockDatabase(DBClass):
+
+    # stocks table
+    STOCKS_FIELDS = [
+        "symbol" # pk
+        "name",
+        "exchange",
+        "exchangeShortName",
+        "type",
+    ]
+
+    # per ticker tables, historical price information.
+    STOCK_TICKER_FIELDS = [
+        "date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "change_percent",
+    ]
+
     db_file = "stocks.db"
 
     def __init__(self, conn):
@@ -23,11 +45,43 @@ class StockDatabase(DBClass):
         """)
         self.conn.commit()
 
+    def delete(self, symbol: str):
+        self.cursor.execute("BEGIN TRANSACTION")
 
-    def _create_ticker_table(self, symbol):
-        cleaned_symbol = symbol
+        self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
+        self.cursor.execute(f"DROP TABLE {symbol}")
+
+        self.cursor.execute("COMMIT")
+        self.conn.commit()
+
+
+    def add(self, **kwargs):
+        symbol = kwargs.get("symbol")
+
+        # make sure we have all the fields
+        for col in STOCKS_FIELDS:
+            if col not in kwargs:
+                raise ValueError(f"can't insert into stocks table, field {col} missing for {symbol}")
+
+        for col in STOCK_TICKER_FIELDS:
+            if col not in kwargs:
+                raise ValueError(f"can't create stock ticker table, field {col} missing for {symbol}")
+
+
+        # get arguments for each of the updates
+        cols, vals = {col: val for col, val in kwargs.items() if col in STOCKS_FIELDS}
+        symbol_cols, symbol_vals = {col: val for col, val in kwargs.items() if col in STOCK_TICKER_FIELDS}
+
+        self.cursor.execute("BEGIN TRANSACTION")
+
         self.cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS '{cleaned_symbol}' (
+            INSERT OR IGNORE INTO stocks (, {cols.join(",")})
+            VALUES (?)
+            """, (vals.join(","))
+            )
+    
+        self.cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS '{symbol}' (
                 date TEXT UNIQUE,
                 open FLOAT,
                 high FLOAT,
@@ -37,4 +91,18 @@ class StockDatabase(DBClass):
                 change_percent FLOAT
             );
         """)
+
+        self.cursor.execute(f"""
+            INSERT OR IGNORE INTO {symbol} (, {cols.join(",")})
+            VALUES (?)
+            """, (vals.join(","))
+            )
+
+        self.cursor.execute("COMMIT")
+
         self.conn.commit()
+
+    def table_info(self):
+        self.cursor.execute("PRAGMA table_info(stocks)")
+        result = {"stocks": {x[1]: x[2] for x in self.cursor.fetchall()}}
+        return json.dumps(result)

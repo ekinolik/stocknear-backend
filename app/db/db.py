@@ -41,3 +41,7 @@ class DBClass(ABC):
     @abstractmethod
     def _create_table(self):
         raise NotImplementedError
+
+    @abstractmethod
+    def table_info(self):
+        raise NotImplementedError
