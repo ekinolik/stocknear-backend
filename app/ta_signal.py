@@ -100,7 +100,6 @@ def process_symbol(ticker):
             df = df.set_index('date')
             ta_df = TASignals(df).run()
         else:
-            print(f"No data found for {ticker}")
             ta_df = []
 
         create_columns(con, ta_df)
