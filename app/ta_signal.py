@@ -79,8 +79,6 @@ def update_database(res, symbol, con):
 
 
 def process_symbol(ticker):
-    print('Processing', ticker)
-
     try:
         query_template = """
             SELECT
