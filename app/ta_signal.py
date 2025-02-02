@@ -106,9 +106,8 @@ def process_symbol(ticker):
         update_database(ta_df, ticker, con)
 
     except Exception as e:
-        print(f"Failed create ta signals for {ticker}: {e}")
-
         pass
+        #print(f"Failed create ta signals for {ticker}: {e}")
 
 
 con = sqlite3.connect(f'backup_db/stocks.db')
