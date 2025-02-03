@@ -4,6 +4,7 @@ services:
     build: ../
     ports:
       - "443:8043"
+      - "8000:8000"
     networks:
       - backend
       - redis

@@ -245,9 +245,12 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
         content={"detail": "Rate limit exceeded"}
     )
 
+# async def get_api_key(api_key: str = Security(api_key_header)):
 async def get_api_key(api_key: str = Security(api_key_header)):
-    if api_key not in VALID_API_KEYS:
-        raise HTTPException(status_code=403, detail="Could not validate credentials")
+    # todo: re-enable api key validation
+    pass
+    # if api_key not in VALID_API_KEYS:
+    #     raise HTTPException(status_code=403, detail="Could not validate credentials")
 
 
 @app.get("/docs")
@@ -4309,4 +4312,6 @@ async def get_newsletter():
     return res
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    api_port = int(os.environ.get('API_PORT'))
+    uvicorn_base_url = os.environ.get('UVICORN_BASE_URL')
+    uvicorn.run(app, host=uvicorn_base_url, port=api_port)
