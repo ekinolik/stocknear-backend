@@ -12,6 +12,8 @@ WORKDIR /opt/stocknear-backend
 # add local repo stuff so we can test any local modifications
 COPY ./fastify /opt/stocknear-backend/fastify
 COPY ./app /opt/stocknear-backend/app
+COPY ./app/backup_db/* /opt/stocknear-backend/
+COPY ./app/json/ /opt/stocknear-backend/json/
 COPY ./requirements.txt /opt/stocknear-backend/requirements.txt
 
 # looks like it doesnt let us install things if not in a python virtual environment...

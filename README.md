@@ -1,7 +1,5 @@
 <div align="center">
 
-
-
 # **Stocknear: Open Source Stock Analysis Platform**
 
 <h3>
@@ -14,25 +12,24 @@
 
 </div>
 
-
-
 # Techstack
 
 This is the codebase that powers [stocknear's](https://stocknear.com/) backend, which is an open-source stock analysis research platform.
 
 Built with:
+
 - [FastAPI](https://fastapi.tiangolo.com/): Python Backend
 - [Fastify](https://fastify.dev/): Nodejs Backend
 - [Pocketbase](https://pocketbase.io/): Database
 - [Redis](https://redis.io/): Caching Data
 
 # Contributing
+
 Stocknear is an open-source project, soley maintained by Muslem Rahimi.
 
 We are not accepting pull requests. However, you are more than welcome to fork the project and customize it to suit your needs.
 
 The core idea of stocknear shall always be: **_Fast_**, **_Simple_** & **_Efficient_**.
-
 
 # Support ❤️
 
@@ -43,10 +40,28 @@ If you love the idea of stocknear and want to support our mission you can help u
 
 # Building
 
+## DB Setup
+
+First, you need to create the databases, tables and json files. You can do this by running the following commands (inside app/):
+
+Add MOCK_API=true to the first 4 commands to use the mock data instead of the real API data.
+
+```
+python3 create_crypto_db.py
+python3 create_etf_db.py
+python3 create_stock_db.py
+python3 create_institute_db.py
+
+python3 ta_signal.py
+cp backup_db/* .
+mkdir -p json/stock-screener
+python3 restart_json.py
+```
+
 Requirements: docker
 
 You can build a container with the code in this repo by running
-`make docker-build`
+`make build-docker`
 
 It will take the local version of the code (with your changes in, if any) and use it.
 To start the container, run `make docker-run`
@@ -57,7 +72,7 @@ In case you built the container and wants to access its shell for debugging, you
 
 Requirements: docker-compose
 
-Using docker-compose, you can bring up the containers needed to run the backend (backend app + redis for caching). 
+Using docker-compose, you can bring up the containers needed to run the backend (backend app + redis for caching).
 
 ```
 stocknear-backend/ (main) $ make compose                                                                                                                                                [5:48:44]
@@ -94,7 +109,6 @@ Removing docker-compose_backend_1 ... done
 Removing network docker-compose_backend
 Removing network docker-compose_redis
 ```
-
 
 # Issues
 

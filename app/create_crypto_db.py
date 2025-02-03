@@ -12,6 +12,8 @@ import warnings
 from tqdm import tqdm
 from datetime import datetime
 from dotenv import load_dotenv
+from data_providers.impl.fmp import FinancialModelingPrep
+from data_providers.fetcher import get_fetcher
 
 load_dotenv()
 
@@ -21,6 +23,11 @@ COINGECKO_API_KEY = os.getenv('COINGECKO_API_KEY')
 START_DATE = datetime(2015, 1, 1).strftime("%Y-%m-%d")
 END_DATE = datetime.today().strftime("%Y-%m-%d")
 DB_PATH = 'backup_db/crypto.db'
+
+
+fetcher = get_fetcher(json_mode=True)
+fmp = FinancialModelingPrep(fetcher, API_KEY)
+
 
 CRYPTO_DATA = {
     'BTCUSD': {
@@ -363,40 +370,23 @@ class CryptoDatabase:
     async def save_ohlc_data(self, session, symbol):
         try:
             #self._create_ticker_table(symbol)  # Create table for the symbol
+            ohlc_data = await fmp.get_historical_price_full(symbol, START_DATE, END_DATE)
+            if 'historical' in ohlc_data:
+                ohlc_values = [(item['date'], item['open'], item['high'], item['low'], item['close'], item['volume'], item['changePercent']) for item in ohlc_data['historical'][::-1]]
 
-            url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?serietype=bar&from={START_DATE}&to={END_DATE}&apikey={API_KEY}"
+                df = pd.DataFrame(ohlc_values, columns=['date', 'open', 'high', 'low', 'close', 'volume', 'change_percent'])
+            
+                # Perform bulk insert
+                df.to_sql(symbol, self.conn, if_exists='append', index=False)
 
-            try:
-                async with session.get(url) as response:
-                    data = await response.text()
-
-                ohlc_data = get_jsonparsed_data(data)
-                if 'historical' in ohlc_data:
-                    ohlc_values = [(item['date'], item['open'], item['high'], item['low'], item['close'], item['volume'], item['changePercent']) for item in ohlc_data['historical'][::-1]]
-
-                    df = pd.DataFrame(ohlc_values, columns=['date', 'open', 'high', 'low', 'close', 'volume', 'change_percent'])
-                
-                    # Perform bulk insert
-                    df.to_sql(symbol, self.conn, if_exists='append', index=False)
-
-            except Exception as e:
-                print(f"Failed to fetch OHLC data for symbol {symbol}: {str(e)}")
         except Exception as e:
             print(f"Failed to create table for symbol {symbol}: {str(e)}")
 
 
-url = f"https://financialmodelingprep.com/api/v3/symbol/available-cryptocurrencies?apikey={API_KEY}"
-
-async def fetch_tickers():
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            data = await response.text()
-            return get_jsonparsed_data(data)
-
 
 db = CryptoDatabase('backup_db/crypto.db')
 loop = asyncio.get_event_loop()
-all_tickers = [item for item in loop.run_until_complete(fetch_tickers()) if item['symbol'] in ['DASHUSD','ETCUSD','LINKUSD','USDCUSD','SHIBUSD','BNBUSD','BTCUSD', 'ETHUSD', 'LTCUSD', 'SOLUSD','DOGEUSD','XRPUSD','XMRUSD','USDTUSD','ADAUSD','AVAXUSD','BCHUSD','TRXUSD','DOTUSD','ALGOUSD']]
+all_tickers = [item for item in loop.run_until_complete(fmp.list_available_cryptocurrencies()) if item['symbol'] in ['DASHUSD','ETCUSD','LINKUSD','USDCUSD','SHIBUSD','BNBUSD','BTCUSD', 'ETHUSD', 'LTCUSD', 'SOLUSD','DOGEUSD','XRPUSD','XMRUSD','USDTUSD','ADAUSD','AVAXUSD','BCHUSD','TRXUSD','DOTUSD','ALGOUSD']]
 
 loop.run_until_complete(db.save_cryptos(all_tickers))
 db.close_connection()

@@ -58,6 +58,7 @@ def create_columns(con, ta_df):
 
     for column in ta_df.columns:
         if column not in existing_column_names:
+            print('adding column', column)
             cursor.execute(f"ALTER TABLE stocks ADD COLUMN {column} REAL")
     con.commit()
 
@@ -104,14 +105,12 @@ def process_symbol(ticker):
         create_columns(con, ta_df)
         update_database(ta_df, ticker, con)
 
-    except:
+    except Exception as e:
         pass
         #print(f"Failed create ta signals for {ticker}: {e}")
 
 
-
 con = sqlite3.connect(f'backup_db/stocks.db')
-
 symbol_query = f"SELECT DISTINCT symbol FROM stocks"
 symbol_cursor = con.execute(symbol_query)
 symbols = [symbol[0] for symbol in symbol_cursor.fetchall()]
@@ -119,18 +118,20 @@ symbols = [symbol[0] for symbol in symbol_cursor.fetchall()]
 start_date = datetime(2022, 1, 1)
 end_date = datetime.today()
 
-# Number of concurrent workers
-num_processes = 4 # You can adjust this based on your system's capabilities
-futures = []
 
-with concurrent.futures.ProcessPoolExecutor(max_workers=num_processes) as executor:
-    for symbol in symbols:
-        futures.append(executor.submit(process_symbol, symbol))
+if __name__ == '__main__': 
+    # Number of concurrent workers
+    num_processes = 4 # You can adjust this based on your system's capabilities
+    futures = []
 
-    # Use tqdm to wrap around the futures for progress tracking
-    for future in tqdm(concurrent.futures.as_completed(futures), total=len(symbols), desc="Processing"):
-        pass
-con.close()
+    with concurrent.futures.ProcessPoolExecutor(max_workers=num_processes) as executor:
+        for symbol in symbols:
+            futures.append(executor.submit(process_symbol, symbol))
+
+        # Use tqdm to wrap around the futures for progress tracking
+        for future in tqdm(concurrent.futures.as_completed(futures), total=len(symbols), desc="Processing"):
+            pass
+    con.close()
 
 
 #==============Test mode================

@@ -9,13 +9,16 @@ from tqdm import tqdm
 import re
 import pandas as pd
 from datetime import datetime
-
+from data_providers.impl.fmp import FinancialModelingPrep
 import warnings
-
+from data_providers.fetcher import get_fetcher
 from dotenv import load_dotenv
 import os
+
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
+fetcher = get_fetcher(json_mode=True)
+fmp = FinancialModelingPrep(fetcher, api_key)
 
 
 # Filter out the specific RuntimeWarning
@@ -182,67 +185,83 @@ class ETFDatabase:
 
     async def save_fundamental_data(self, session, symbol):
         try:
-            urls = [
-                f"https://financialmodelingprep.com/api/v4/etf-info?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/etf-holder/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/etf-country-weightings/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date=2023-09-30&symbol={symbol}&page=0&apikey={api_key}",
+
+            methods = [
+                {
+                    'method': lambda: fmp.get_etf_info(symbol),
+                    'key': 'etf_info'
+                },
+                {
+                    'method': lambda: fmp.get_etf_holder(symbol),
+                    'key': 'etf_holder'
+                },
+                {
+                    'method': lambda: fmp.get_etf_country_weightings(symbol),
+                    'key': 'etf_country_weightings'
+                },
+                {
+                    'method': lambda: fmp.get_quote(symbol),
+                    'key': 'quote'
+                },
+                {
+                    'method': lambda: fmp.get_stock_dividend(symbol),
+                    'key': 'stock_dividend'
+                },
+                {
+                    'method': lambda: fmp.get_institutional_holders(symbol, '2023-09-30'),
+                    'key': 'institutional_holders'
+                }
             ]
 
             fundamental_data = {}
 
     
-            for url in urls:
-                async with session.get(url) as response:
-                    data = await response.text()
-                    parsed_data = get_jsonparsed_data(data)
+            for method in methods:
+                parsed_data = await method['method']()
 
-                    try:
-                        if isinstance(parsed_data, list) and "etf-info" in url:
-                            fundamental_data['profile'] = ujson.dumps(parsed_data)
-                            etf_name = parsed_data[0]['name']
-                            etf_provider = get_etf_provider(etf_name)
+                try:
+                    if isinstance(parsed_data, list) and method['key'] == 'etf_info':
+                        fundamental_data['profile'] = ujson.dumps(parsed_data)
+                        etf_name = parsed_data[0]['name']
+                        etf_provider = get_etf_provider(etf_name)
 
-                            data_dict = {
-                                        'inceptionDate': parsed_data[0]['inceptionDate'],
-                                        'etfProvider': etf_provider,
-                                        'expenseRatio': round(parsed_data[0]['expenseRatio'],2),
-                                        'totalAssets': parsed_data[0]['aum'],
-                                        }
-                            fundamental_data.update(data_dict)
+                        data_dict = {
+                                    'inceptionDate': parsed_data[0]['inceptionDate'],
+                                    'etfProvider': etf_provider,
+                                    'expenseRatio': round(parsed_data[0]['expenseRatio'],2),
+                                    'totalAssets': parsed_data[0]['aum'],
+                                    }
+                        fundamental_data.update(data_dict)
 
-                        elif isinstance(parsed_data, list) and "quote" in url:
-                            fundamental_data['quote'] = ujson.dumps(parsed_data)
-                            data_dict = {
-                                        'price': parsed_data[0]['price'],
-                                        'changesPercentage': round(parsed_data[0]['changesPercentage'],2),
-                                        'marketCap': parsed_data[0]['marketCap'],
-                                        'volume': parsed_data[0]['volume'],
-                                        'avgVolume': parsed_data[0]['avgVolume'],
-                                        'eps': round(parsed_data[0]['eps'],2),
-                                        'pe': round(parsed_data[0]['pe'],2),
-                                        'previousClose': parsed_data[0]['previousClose'],
-                                        }
-                            fundamental_data.update(data_dict)
+                    elif isinstance(parsed_data, list) and method['key'] == 'quote':
+                        fundamental_data['quote'] = ujson.dumps(parsed_data)
+                        data_dict = {
+                                    'price': parsed_data[0]['price'],
+                                    'changesPercentage': round(parsed_data[0]['changesPercentage'],2),
+                                    'marketCap': parsed_data[0]['marketCap'],
+                                    'volume': parsed_data[0]['volume'],
+                                    'avgVolume': parsed_data[0]['avgVolume'],
+                                    'eps': round(parsed_data[0]['eps'],2),
+                                    'pe': round(parsed_data[0]['pe'],2),
+                                    'previousClose': parsed_data[0]['previousClose'],
+                                    }
+                        fundamental_data.update(data_dict)
 
-
-                        elif isinstance(parsed_data, list) and "etf-holder" in url:
-                            fundamental_data['holding'] = ujson.dumps(parsed_data)
-                            data_dict = {'numberOfHoldings': len(json.loads(fundamental_data['holding']))}
-                            fundamental_data.update(data_dict)
-                        elif isinstance(parsed_data, list) and "etf-country-weightings" in url:
-                            fundamental_data['country_weightings'] = ujson.dumps(parsed_data)
+                    elif isinstance(parsed_data, list) and method['key'] == 'etf_holder':
+                        fundamental_data['holding'] = ujson.dumps(parsed_data)
+                        data_dict = {'numberOfHoldings': len(json.loads(fundamental_data['holding']))}
+                        fundamental_data.update(data_dict)
+                    elif isinstance(parsed_data, list) and method['key'] == 'etf_country_weightings':
+                        fundamental_data['country_weightings'] = ujson.dumps(parsed_data)
                         
-                        elif "stock_dividend" in url:
-                            fundamental_data['etf_dividend'] = ujson.dumps(parsed_data)
+                    elif isinstance(parsed_data, list) and method['key'] == 'stock_dividend':
+                        fundamental_data['etf_dividend'] = ujson.dumps(parsed_data)
         
-                        elif "institutional-ownership/institutional-holders" in url:
-                            fundamental_data['shareholders'] = ujson.dumps(parsed_data)
+                    elif isinstance(parsed_data, list) and method['key'] == 'institutional_holders':
+                        fundamental_data['shareholders'] = ujson.dumps(parsed_data)
 
-                    except:
-                        pass
+                except:
+                    pass
 
 
             # Check if columns already exist in the table
@@ -360,40 +379,24 @@ class ETFDatabase:
         try:
             #self._create_ticker_table(symbol)  # Create table for the symbol
 
-            url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?serietype=bar&from={start_date}&to={end_date}&apikey={api_key}"
+            ohlc_data = await fmp.get_historical_price_full(symbol, start_date, end_date)
+            if 'historical' in ohlc_data:
+                ohlc_values = [(item['date'], item['open'], item['high'], item['low'], item['close'], item['volume'], item['changePercent']) for item in ohlc_data['historical'][::-1]]
 
-            try:
-                async with session.get(url) as response:
-                    data = await response.text()
+                df = pd.DataFrame(ohlc_values, columns=['date', 'open', 'high', 'low', 'close', 'volume', 'change_percent'])
+            
+                # Perform bulk insert
+                df.to_sql(symbol, self.conn, if_exists='append', index=False)
 
-                ohlc_data = get_jsonparsed_data(data)
-                if 'historical' in ohlc_data:
-                    ohlc_values = [(item['date'], item['open'], item['high'], item['low'], item['close'], item['volume'], item['changePercent']) for item in ohlc_data['historical'][::-1]]
-
-                    df = pd.DataFrame(ohlc_values, columns=['date', 'open', 'high', 'low', 'close', 'volume', 'change_percent'])
-                
-                    # Perform bulk insert
-                    df.to_sql(symbol, self.conn, if_exists='append', index=False)
-
-            except Exception as e:
-                print(f"Failed to fetch OHLC data for symbol {symbol}: {str(e)}")
         except Exception as e:
             print(f"Failed to create table for symbol {symbol}: {str(e)}")
 
 
-url = f"https://financialmodelingprep.com/api/v3/etf/list?apikey={api_key}"
-
-
-async def fetch_tickers():
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            data = await response.text()
-            return get_jsonparsed_data(data)
 
 
 db = ETFDatabase('backup_db/etf.db')
 loop = asyncio.get_event_loop()
-all_tickers = loop.run_until_complete(fetch_tickers())
+all_tickers = loop.run_until_complete(fmp.list_etfs())
 '''
 for item in all_tickers:
     if item['symbol'] == 'GLD':

@@ -11,7 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 import asyncio
 import aiohttp
-
+from data_providers.fetcher import get_fetcher
+from data_providers.impl.unusual_whales import UnusualWhales
 
 today = datetime.today().date()
 
@@ -36,11 +37,15 @@ etf_cursor.execute("PRAGMA journal_mode = wal")
 etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
 etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
+fetcher = get_fetcher(json_mode=False)
+uw = UnusualWhales(fetcher, api_key)
+
 con.close()
 etf_con.close()
 
 
 def get_tickers_from_directory(directory: str):
+
     try:
         # Ensure the directory exists
         if not os.path.exists(directory):
@@ -128,10 +133,7 @@ def get_hottest_contracts():
     counter = 0
     for symbol in tqdm(total_symbols):
         try:
-            
-            url = f"https://api.unusualwhales.com/api/stock/{symbol}/option-contracts"
-            
-            response = requests.get(url, headers=headers)
+            response = uw.get_option_contracts(symbol)
             if response.status_code == 200:
                 data = response.json()['data']
 
