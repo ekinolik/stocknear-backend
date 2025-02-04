@@ -11,6 +11,7 @@ WORKDIR /opt/stocknear-backend
 
 ARG API_PORT=8000  # Declare ARG
 ENV API_PORT=${API_PORT}
+ENV USER_API_KEY="test"
 
 # add local repo stuff so we can test any local modifications
 COPY ./fastify /opt/stocknear-backend/fastify

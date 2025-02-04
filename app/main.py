@@ -245,12 +245,9 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
         content={"detail": "Rate limit exceeded"}
     )
 
-# async def get_api_key(api_key: str = Security(api_key_header)):
 async def get_api_key(api_key: str = Security(api_key_header)):
-    # todo: re-enable api key validation
-    pass
-    # if api_key not in VALID_API_KEYS:
-    #     raise HTTPException(status_code=403, detail="Could not validate credentials")
+    if api_key not in VALID_API_KEYS:
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
 
 
 @app.get("/docs")
