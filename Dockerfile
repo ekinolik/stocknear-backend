@@ -9,10 +9,6 @@ RUN apt-get -y update && \
 
 WORKDIR /opt/stocknear-backend
 
-ARG API_PORT=8000  # Declare ARG
-ENV API_PORT=${API_PORT}
-ENV USER_API_KEY="test"
-
 # add local repo stuff so we can test any local modifications
 COPY ./fastify /opt/stocknear-backend/fastify
 COPY ./app /opt/stocknear-backend/app
@@ -25,5 +21,4 @@ COPY ./requirements.txt /opt/stocknear-backend/requirements.txt
 # add the --break-system-packages flag to ignore the warning
 RUN python3 -m pip install -r requirements.txt --break-system-packages
 
-EXPOSE 8000
 ENTRYPOINT ["python3", "app/main.py"]

@@ -4309,6 +4309,6 @@ async def get_newsletter():
     return res
 
 if __name__ == "__main__":
-    api_port = int(os.environ.get('API_PORT'))
+    api_port = int(os.environ.get('API_PORT', 8000))
     uvicorn_base_url = os.environ.get('UVICORN_BASE_URL')
     uvicorn.run(app, host=uvicorn_base_url, port=api_port)

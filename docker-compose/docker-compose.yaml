@@ -8,6 +8,10 @@ services:
     networks:
       - backend
       - redis
+    environment:
+      - UVICORN_BASE_URL=${UVICORN_BASE_URL}
+      - USER_API_KEY=${USER_API_KEY}
+      - API_PORT=8000
   redis:
     image: redis:7.4-bookworm
     ports:
