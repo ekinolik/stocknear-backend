@@ -233,9 +233,15 @@ def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
 
 
 STOCKNEAR_API_KEY = os.getenv('STOCKNEAR_API_KEY')
-USER_API_KEY = os.getenv('USER_API_KEY')
+
+TEST_USER_API_KEY = 'test'
+USER_API_KEY = os.getenv('USER_API_KEY', TEST_USER_API_KEY)
+
 VALID_API_KEYS = [STOCKNEAR_API_KEY, USER_API_KEY]
 api_key_header = APIKeyHeader(name="X-API-KEY")
+
+DEFAULT_UVICORN_BASE_URL = '0.0.0.0'
+DEFAULT_UVICORN_PORT = 8000
 
 
 @app.exception_handler(RateLimitExceeded)
@@ -4309,6 +4315,6 @@ async def get_newsletter():
     return res
 
 if __name__ == "__main__":
-    api_port = int(os.environ.get('API_PORT', 8000))
-    uvicorn_base_url = os.environ.get('UVICORN_BASE_URL')
+    api_port = int(os.environ.get('API_PORT', DEFAULT_UVICORN_PORT))
+    uvicorn_base_url = os.environ.get('UVICORN_BASE_URL', DEFAULT_UVICORN_BASE_URL)
     uvicorn.run(app, host=uvicorn_base_url, port=api_port)
