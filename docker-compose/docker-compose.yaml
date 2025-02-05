@@ -1,4 +1,10 @@
 services:
+  init-db:
+    image: stocknear:latest
+    entrypoint: python3 app/db/main.py
+    volumes:
+      - db_dir:/opt/stocknear/db
+  
   backend:
     image: stocknear:latest
     build: ../
@@ -7,6 +13,11 @@ services:
     networks:
       - backend
       - redis
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+    volumes:
+      - db_dir:/opt/stocknear/db
   redis:
     image: redis:7.4-bookworm
     ports:
@@ -17,3 +28,11 @@ networks:
   # The presence of these objects is sufficient to define them
   backend: {}
   redis: {}
+  
+volumes:
+  db_dir:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /tmp/testdb

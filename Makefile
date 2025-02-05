@@ -1,7 +1,7 @@
 # packages this repo on a container
 .PHONY: build-docker
 build-docker:
-	@docker build . -t stocknear:latest -f Dockerfile
+	@docker build . -t stocknear:latest -f Dockerfile --no-cache
 
 # so you can access the bash on a container, for running manually or debugging
 .PHONY: docker-bash
@@ -17,6 +17,10 @@ docker-run:
 .PHONY: compose
 compose:
 	@docker-compose -f docker-compose/docker-compose.yaml up
+
+.PHONY: compose-logs
+compose-logs:
+	@docker-compose -f docker-compose/docker-compose.yaml logs
 
 # stop containers
 .PHONY: compose-down
