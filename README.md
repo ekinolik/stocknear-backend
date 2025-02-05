@@ -60,13 +60,6 @@ python3 restart_json.py
 
 Requirements: docker
 
-You want to have .env file inside of the docker-compose folder with the following content:
-
-```
-UVICORN_BASE_URL=0.0.0.0
-USER_API_KEY=test
-```
-
 You can build a container with the code in this repo by running
 `make build-docker`
 
