@@ -112,6 +112,13 @@ CRYPTOS = {
 
 class CryptoDatabase(DBClass):
 
+    CRYPTO_FIELDS = [
+        "symbol", #primary key
+        "name",
+        "exchange",
+        "type",
+    ]
+
     def __init__(self, conn):
         self.conn = conn
         self.cursor = self.conn.cursor()
@@ -131,15 +138,29 @@ class CryptoDatabase(DBClass):
         """)
         self.conn.commit()
 
-    def add(self, symbol, name, exchange, ticker_type: str):
-        self.cursor.execute("""
-        INSERT OR IGNORE INTO cryptos (
-            symbol, name, exchange, type) VALUES (?, ?, ?, ?)
-        """, (symbol, name, exchange, ticker_type))
-        self.cursor.execute("""
-        UPDATE cryptos SET 
-            name = ?, exchange = ?, type= ?
-            WHERE symbol = ?
-        """, (name, exchange, ticker_type, symbol))
+    def delete(self, symbol: str):
+        self.cursor.execute("DELETE FROM cryptos WHERE symbol = ?", (symbol,))
+        self.conn.commit()
 
+    def add(self, **kwargs):
+        column_values = {col:val for col, val in kwargs.items() if col in self.CRYPTO_FIELDS}
+        symbol = column_values.pop("symbol", None)
+        if not symbol:
+            raise ValueError("symbol not passed in the dict, cant match a crypto entry without it.")
+
+        self.cursor.execute("BEGIN TRANSACTION")
+
+        self.cursor.execute(f"""
+            INSERT OR IGNORE INTO cryptos (symbol)
+            VALUES (?)
+            """, (symbol,)
+            )
+        for col, val in column_values.items():
+            self.cursor.execute(f"""
+                UPDATE cryptos 
+                SET {col} = {val}
+                WHERE symbol = {symbol}""")
+
+        self.cursor.execute("COMMIT")
+                
         self.conn.commit()
