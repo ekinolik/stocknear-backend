@@ -13,7 +13,9 @@
       "portfolioSize": 43,
       "performance3yearRelativeToSP500Percentage": 14.2185,
       "performance5yearRelativeToSP500Percentage": 45.5084,
-      "performanceSinceInceptionRelativeToSP500Percentage": 67.7794
+      "performanceSinceInceptionRelativeToSP500Percentage": 67.7794,
+      "marketValue": 266380000000,
+      "performancePercentage3year": 31.26
     }
   ],
   "/api/v4/institutional-ownership/portfolio-holdings?cik=0001067983": [
@@ -20100,6 +20102,14 @@
     }
   ],
   "/api/v3/available-traded/list": [
+      {
+        "symbol": "AAPL",
+        "name": "Apple Inc.",
+        "price": 236,
+        "exchange": "NASDAQ Global Select",
+        "exchangeShortName": "NASDAQ",
+        "type": "stock"
+    },
     {
       "symbol": "FITB",
       "name": "Fifth Third Bancorp",
