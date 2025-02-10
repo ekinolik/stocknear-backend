@@ -47,13 +47,24 @@ First, you need to create the databases, tables and json files. You can do this 
 Add MOCK_API=true to the first 4 commands to use the mock data instead of the real API data.
 
 ```
-python3 create_crypto_db.py
-python3 create_etf_db.py
-python3 create_stock_db.py
-python3 create_institute_db.py
+MOCK_API=true python3 create_crypto_db.py
+MOCK_API=true python3 create_etf_db.py
+MOCK_API=true python3 create_stock_db.py
+MOCK_API=true python3 create_institute_db.py
 
 python3 ta_signal.py
 cp backup_db/* .
+
+mkdir -p json/quote
+mkdir -p json/pre-post-quote
+MOCK_API=true python3 cron_quote.py
+
+mkdir -p json/one-day-price
+MOCK_API=true python3 cron_one_day_price.py
+
+mkdir -p json/stockdeck
+python3 cron_stockdeck.py
+
 mkdir -p json/stock-screener
 python3 restart_json.py
 ```

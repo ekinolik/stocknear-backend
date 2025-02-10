@@ -7,11 +7,16 @@ import pytz
 
 from dotenv import load_dotenv
 import os
+from data_providers.impl.fmp import FinancialModelingPrep
+from data_providers.fetcher import get_fetcher
+
 load_dotenv()
-api_key = os.getenv('FMP_API_KEY')
 
 ny_timezone = pytz.timezone("America/New_York")
 
+api_key = os.getenv('FMP_API_KEY')
+fetcher = get_fetcher(json_mode=True)
+fmp = FinancialModelingPrep(fetcher, api_key)
 
 # Function to delete all files in a directory
 def delete_files_in_directory(directory):
@@ -26,34 +31,15 @@ def delete_files_in_directory(directory):
 
 async def get_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
-    async with aiohttp.ClientSession() as session:
-        url = f"https://financialmodelingprep.com/api/v3/quote/{ticker_str}?apikey={api_key}" 
-        async with session.get(url) as response:
-            if response.status == 200:
-                return await response.json()
-            else:
-                return {}
+    return await fmp.get_quote(ticker_str)
 
 async def get_pre_post_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
-    async with aiohttp.ClientSession() as session:
-        #url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market/{ticker_str}?apikey={api_key}" 
-        url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market-trade/{ticker_str}?apikey={api_key}"
-        async with session.get(url) as response:
-            if response.status == 200:
-                return await response.json()
-            else:
-                return {}
+    return await fmp.get_batch_pre_post_market_trade(ticker_str)
 
 async def get_bid_ask_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
-    async with aiohttp.ClientSession() as session:
-        url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market/{ticker_str}?apikey={api_key}" 
-        async with session.get(url) as response:
-            if response.status == 200:
-                return await response.json()
-            else:
-                return {}
+    return await fmp.get_batch_pre_post_market(ticker_str)
 
 async def save_quote_as_json(symbol, data):
     with open(f"json/quote/{symbol}.json", 'w') as file:
