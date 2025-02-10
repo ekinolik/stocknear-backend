@@ -95,3 +95,15 @@ class FinancialModelingPrep:
     async def list_available_cryptocurrencies(self) -> dict:
         url = f"{FMP_BASE_URL}/api/v3/symbol/available-cryptocurrencies?apikey={self.api_key}"
         return (await self.fetcher(url))
+
+    async def get_batch_pre_post_market_trade(self, symbols: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v4/batch-pre-post-market-trade/{symbols}?apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_batch_pre_post_market(self, symbol: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v4/batch-pre-post-market/{symbol}&apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_historical_chart(self, symbol: str, from_date: str, to_date: str, interval: str = '1min') -> dict:
+        url = f"{FMP_BASE_URL}/api/v3/historical-chart/{interval}/{symbol}?from={from_date}&to={to_date}&apikey={self.api_key}"
+        return (await self.fetcher(url))
