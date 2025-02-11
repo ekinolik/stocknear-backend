@@ -23,6 +23,8 @@ services:
         condition: service_completed_successfully
     volumes:
       - db_dir:/opt/stocknear/db
+      - backup_db_dir:/opt/stocknear/backup_db # do we really need this?
+      - json_dir:/opt/stocknear/json # do we really need this?
   redis:
     image: redis:7.4-bookworm
     ports:
@@ -40,3 +42,15 @@ volumes:
       type: none
       o: bind
       device: /tmp/testdb
+  backup_db_dir:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /tmp/backupdb
+  json_dir:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /tmp/json
