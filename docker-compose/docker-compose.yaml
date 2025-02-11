@@ -1,4 +1,10 @@
 services:
+  init-db:
+    image: stocknear:latest
+    entrypoint: python3 app/db/main.py
+    volumes:
+      - db_dir:/opt/stocknear/db
+  
   backend:
     image: stocknear:latest
     build: ../
@@ -12,6 +18,13 @@ services:
       - UVICORN_BASE_URL=${UVICORN_BASE_URL}
       - USER_API_KEY=${USER_API_KEY}
       - API_PORT=${API_PORT}
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+    volumes:
+      - db_dir:/opt/stocknear/db
+      - backup_db_dir:/opt/stocknear/backup_db # do we really need this?
+      - json_dir:/opt/stocknear/json # do we really need this?
   redis:
     image: redis:7.4-bookworm
     ports:
@@ -22,3 +35,22 @@ networks:
   # The presence of these objects is sufficient to define them
   backend: {}
   redis: {}
+volumes:
+  db_dir:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /tmp/testdb
+  backup_db_dir:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /tmp/backupdb
+  json_dir:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /tmp/json
