@@ -190,6 +190,7 @@ class InstituteDatabase:
             # Process and add summary data
             if isinstance(summary_parsed_data, list) and summary_parsed_data:
                 portfolio_data['summary'] = json.dumps(summary_parsed_data)
+                # TODO: does the api actually have these fields? they are not documented, and not available on free tier
                 data_dict = {
                     'marketValue': summary_parsed_data[0].get('marketValue', 0),
                     'averageHoldingPeriod': summary_parsed_data[0].get('averageHoldingPeriod', 0),

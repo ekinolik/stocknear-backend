@@ -58,6 +58,9 @@ mkdir -p json/stock-screener
 python3 restart_json.py
 ```
 
+For the hedge funds data to populate, you need to run `python3 cron_hedge_funds.py`
+
+
 Requirements: docker
 
 You can build a container with the code in this repo by running
@@ -69,6 +72,14 @@ To start the container, run `make compose`
 In case you built the container and wants to access its shell for debugging, you can do so with `make docker-bash`
 
 # Running locally
+
+Before you do that, you want the following env variables to be set (the .env file should be inside of docker-compose):
+```
+UVICORN_BASE_URL=backend
+USER_API_KEY=test
+API_PORT=8000
+BACKEND_NETWORK=backend-network
+```
 
 Requirements: docker-compose
 
