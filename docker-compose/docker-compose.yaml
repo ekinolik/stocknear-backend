@@ -20,5 +20,7 @@ services:
       - redis
 networks:
   # The presence of these objects is sufficient to define them
-  backend: {}
+  backend:
+    external: true
+    name: ${BACKEND_NETWORK}
   redis: {}
