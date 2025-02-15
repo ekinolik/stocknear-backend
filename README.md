@@ -75,9 +75,10 @@ In case you built the container and wants to access its shell for debugging, you
 
 Before you do that, you want the following env variables to be set (the .env file should be inside of docker-compose):
 ```
-UVICORN_BASE_URL=0.0.0.0
+UVICORN_BASE_URL=backend
 USER_API_KEY=test
 API_PORT=8000
+BACKEND_NETWORK=backend-network
 ```
 
 Requirements: docker-compose
