@@ -67,7 +67,7 @@ You can build a container with the code in this repo by running
 `make build-docker`
 
 It will take the local version of the code (with your changes in, if any) and use it.
-To start the container, run `make docker-run`
+To start the container, run `make compose`
 
 In case you built the container and wants to access its shell for debugging, you can do so with `make docker-bash`
 
