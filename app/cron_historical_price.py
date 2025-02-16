@@ -10,9 +10,13 @@ import pandas as pd
 from dotenv import load_dotenv
 import os
 
+from data_providers.impl.fmp import FinancialModelingPrep
+from data_providers.fetcher import get_fetcher
+
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
-
+fetcher = get_fetcher(json_mode=True)
+fmp = FinancialModelingPrep(fetcher, api_key)
 
 async def fetch_and_save_symbols_data(symbols, etf_symbols, crypto_symbols, session):
     tasks = []
@@ -33,59 +37,57 @@ async def fetch_and_save_symbols_data(symbols, etf_symbols, crypto_symbols, sess
 async def get_historical_data(ticker, query_con, session):
     try:
         # Form API request URLs
-    
-        url_1w = f"https://financialmodelingprep.com/api/v3/historical-chart/30min/{ticker}?from={start_date_1w}&to={end_date}&apikey={api_key}"
-        url_1m = f"https://financialmodelingprep.com/api/v3/historical-chart/1hour/{ticker}?from={start_date_1m}&to={end_date}&apikey={api_key}"
-        
-        async with session.get(url_1w) as response_1w, session.get(url_1m) as response_1m:
-            data = []
-            for response in [response_1w, response_1m]:
-                json_data = await response.json()
-                df = pd.DataFrame(json_data).iloc[::-1].reset_index(drop=True)
-                '''
-                try:
-                    df = df.drop(['volume'], axis=1)
-                except:
-                    pass
-                '''
-                df = df.round(2).rename(columns={"date": "time"})
-                data.append(df.to_json(orient="records"))
 
-            # Database read for 6M, 1Y, MAX data
-            query_template = """
-                SELECT date, open,high,low,close,volume
-                FROM "{ticker}"
-                WHERE date BETWEEN ? AND ?
-            """
-            query = query_template.format(ticker=ticker)
-            df_6m = pd.read_sql_query(query, query_con, params=(start_date_6m, end_date)).round(2).rename(columns={"date": "time"})
-            df_1y = pd.read_sql_query(query, query_con, params=(start_date_1y, end_date)).round(2).rename(columns={"date": "time"})
-            df_5y = pd.read_sql_query(query, query_con, params=(start_date_5y, end_date)).round(2).rename(columns={"date": "time"})
-            df_max = pd.read_sql_query(query, query_con, params=(start_date_max, end_date)).round(2).rename(columns={"date": "time"})
+        response_1w = await fmp.get_historical_chart(ticker, start_date_1w, end_date, '30min')
+        response_1m = await fmp.get_historical_chart(ticker, start_date_1m, end_date, '1hour')
 
-            async with aiofiles.open(f"json/historical-price/one-week/{ticker}.json", 'w') as file:
-                res = ujson.loads(data[0]) if data else []
-                await file.write(ujson.dumps(res))
+        data = []
+        for json_data in [response_1w, response_1m]:
+            df = pd.DataFrame(json_data).iloc[::-1].reset_index(drop=True)
+            '''
+            try:
+                df = df.drop(['volume'], axis=1)
+            except:
+                pass
+            '''
+            df = df.round(2).rename(columns={"date": "time"})
+            data.append(df.to_json(orient="records"))
 
-            async with aiofiles.open(f"json/historical-price/one-month/{ticker}.json", 'w') as file:
-                res = ujson.loads(data[1]) if len(data) > 1 else []
-                await file.write(ujson.dumps(res))
+        # Database read for 6M, 1Y, MAX data
+        query_template = """
+            SELECT date, open,high,low,close,volume
+            FROM "{ticker}"
+            WHERE date BETWEEN ? AND ?
+        """
+        query = query_template.format(ticker=ticker)
+        df_6m = pd.read_sql_query(query, query_con, params=(start_date_6m, end_date)).round(2).rename(columns={"date": "time"})
+        df_1y = pd.read_sql_query(query, query_con, params=(start_date_1y, end_date)).round(2).rename(columns={"date": "time"})
+        df_5y = pd.read_sql_query(query, query_con, params=(start_date_5y, end_date)).round(2).rename(columns={"date": "time"})
+        df_max = pd.read_sql_query(query, query_con, params=(start_date_max, end_date)).round(2).rename(columns={"date": "time"})
 
-            async with aiofiles.open(f"json/historical-price/six-months/{ticker}.json", 'w') as file:
-                res = ujson.loads(df_6m.to_json(orient="records"))
-                await file.write(ujson.dumps(res))
+        async with aiofiles.open(f"json/historical-price/one-week/{ticker}.json", 'w') as file:
+            res = ujson.loads(data[0]) if data else []
+            await file.write(ujson.dumps(res))
 
-            async with aiofiles.open(f"json/historical-price/one-year/{ticker}.json", 'w') as file:
-                res = ujson.loads(df_1y.to_json(orient="records"))
-                await file.write(ujson.dumps(res))
+        async with aiofiles.open(f"json/historical-price/one-month/{ticker}.json", 'w') as file:
+            res = ujson.loads(data[1]) if len(data) > 1 else []
+            await file.write(ujson.dumps(res))
 
-            async with aiofiles.open(f"json/historical-price/five-years/{ticker}.json", 'w') as file:
-                res = ujson.loads(df_5y.to_json(orient="records"))
-                await file.write(ujson.dumps(res))
+        async with aiofiles.open(f"json/historical-price/six-months/{ticker}.json", 'w') as file:
+            res = ujson.loads(df_6m.to_json(orient="records"))
+            await file.write(ujson.dumps(res))
 
-            async with aiofiles.open(f"json/historical-price/max/{ticker}.json", 'w') as file:
-                res = ujson.loads(df_max.to_json(orient="records"))
-                await file.write(ujson.dumps(res))
+        async with aiofiles.open(f"json/historical-price/one-year/{ticker}.json", 'w') as file:
+            res = ujson.loads(df_1y.to_json(orient="records"))
+            await file.write(ujson.dumps(res))
+
+        async with aiofiles.open(f"json/historical-price/five-years/{ticker}.json", 'w') as file:
+            res = ujson.loads(df_5y.to_json(orient="records"))
+            await file.write(ujson.dumps(res))
+
+        async with aiofiles.open(f"json/historical-price/max/{ticker}.json", 'w') as file:
+            res = ujson.loads(df_max.to_json(orient="records"))
+            await file.write(ujson.dumps(res))
 
     except Exception as e:
         print(f"Failed to fetch data for {ticker}: {e}")

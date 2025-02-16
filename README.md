@@ -71,6 +71,22 @@ python3 restart_json.py
 
 For the hedge funds data to populate, you need to run `python3 cron_hedge_funds.py`
 
+For the historical stock price to populate, you need:
+```
+mkdir -p json/historical-price/one-week
+mkdir -p json/historical-price/one-month
+mkdir -p json/historical-price/six-months
+mkdir -p json/historical-price/one-year
+mkdir -p json/historical-price/five-years
+mkdir -p json/historical-price/max
+
+MOCK_API=true python3 cron_historical_price.py
+```
+
+For the stock's financials:
+```
+MOCK_API=true python3 cron_financial_statements.py
+```
 
 Requirements: docker
 

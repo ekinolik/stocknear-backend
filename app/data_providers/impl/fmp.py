@@ -107,3 +107,43 @@ class FinancialModelingPrep:
     async def get_historical_chart(self, symbol: str, from_date: str, to_date: str, interval: str = '1min') -> dict:
         url = f"{FMP_BASE_URL}/api/v3/historical-chart/{interval}/{symbol}?from={from_date}&to={to_date}&apikey={self.api_key}"
         return (await self.fetcher(url))
+
+    async def get_key_metrics(self, symbol: str, period: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v3/key-metrics/{symbol}?period={period}&apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_income_statement(self, symbol: str, period: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v3/income-statement/{symbol}?period={period}&apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_balance_sheet_statement(self, symbol: str, period: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v3/balance-sheet-statement/{symbol}?period={period}&apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_cash_flow_statement(self, symbol: str, period: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v3/cash-flow-statement/{symbol}?period={period}&apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_ratios(self, symbol: str, period: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v3/ratios/{symbol}?period={period}&apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_income_statement_growth(self, symbol: str, period: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v3/income-statement-growth/{symbol}?period={period}&apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_balance_sheet_statement_growth(self, symbol: str, period: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v3/balance-sheet-statement-growth/{symbol}?period={period}&apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_cash_flow_statement_growth(self, symbol: str, period: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v3/cash-flow-statement-growth/{symbol}?period={period}&apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_key_metrics_ttm(self, symbol: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v3/key-metrics-ttm/{symbol}?apikey={self.api_key}"
+        return (await self.fetcher(url))
+
+    async def get_owner_earnings(self, symbol: str) -> dict:
+        url = f"{FMP_BASE_URL}/api/v4/owner_earnings?symbol={symbol}&apikey={self.api_key}"
+        return (await self.fetcher(url))

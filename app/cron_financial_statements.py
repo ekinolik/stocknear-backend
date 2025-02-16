@@ -5,9 +5,13 @@ import aiohttp
 import sqlite3
 from tqdm import tqdm
 from dotenv import load_dotenv
+from data_providers.impl.fmp import FinancialModelingPrep
+from data_providers.fetcher import get_fetcher
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
+fetcher = get_fetcher(json_mode=True)
+fmp = FinancialModelingPrep(fetcher, api_key)
 
 # Configurations
 include_current_quarter = False
@@ -100,36 +104,69 @@ async def calculate_margins(symbol):
             print(f"Error calculating margins for {symbol}: {e}")
 
 async def get_financial_statements(session, symbol, semaphore, rate_limiter):
-    base_url = "https://financialmodelingprep.com/api/v3"
     periods = ['quarter', 'annual']
-    financial_data_types = ['key-metrics', 'income-statement', 'balance-sheet-statement', 'cash-flow-statement', 'ratios']
-    growth_data_types = ['income-statement-growth', 'balance-sheet-statement-growth', 'cash-flow-statement-growth']
+
+    financial_data_methods = [
+        {
+            'method': lambda period: fmp.get_key_metrics(symbol, period),
+            'data_type': 'key-metrics'
+        },
+        {
+            'method': lambda period: fmp.get_income_statement(symbol, period),
+            'data_type': 'income-statement'
+        },
+        {
+            'method': lambda period: fmp.get_balance_sheet_statement(symbol, period),
+            'data_type': 'balance-sheet-statement'
+        },
+        {
+            'method': lambda period: fmp.get_cash_flow_statement(symbol, period),
+            'data_type': 'cash-flow-statement'
+        },
+        {
+            'method': lambda period: fmp.get_ratios(symbol, period),
+            'data_type': 'ratios'
+        }
+    ]
+
+    growth_data_methods = [
+        {
+            'method': lambda period: fmp.get_income_statement_growth(symbol, period),
+            'growth_type': 'income-statement-growth'
+        },
+        {
+            'method': lambda period: fmp.get_balance_sheet_statement_growth(symbol, period),
+            'growth_type': 'balance-sheet-statement-growth'
+        },
+        {
+            'method': lambda period: fmp.get_cash_flow_statement_growth(symbol, period),
+            'growth_type': 'cash-flow-statement-growth'
+        }
+    ]
     
     async with semaphore:
         for period in periods:
             # Fetch regular financial statements
-            for data_type in financial_data_types:
-                url = f"{base_url}/{data_type}/{symbol}?period={period}&apikey={api_key}"
-                data = await fetch_data(session, url, symbol, rate_limiter)
+            for financial_data_method in financial_data_methods:
+                # todo: do we need rate limiter here?
+                data = await financial_data_method['method'](period)
                 if data:
-                    await save_json(symbol, period, data_type, data)
+                    await save_json(symbol, period, financial_data_method['data_type'], data)
             
             # Fetch financial statement growth data
-            for growth_type in growth_data_types:
-                growth_url = f"{base_url}/{growth_type}/{symbol}?period={period}&apikey={api_key}"
-                growth_data = await fetch_data(session, growth_url, symbol, rate_limiter)
+            for growth_data_method in growth_data_methods:
+                # todo: do we need rate limiter here?
+                growth_data = await growth_data_method['method'](period)
                 if growth_data:
-                    await save_json(symbol, period, growth_type, growth_data)
+                    await save_json(symbol, period, growth_data_method['growth_type'], growth_data)
 
         # Fetch TTM metrics
-        url = f"https://financialmodelingprep.com/api/v3/key-metrics-ttm/{symbol}?apikey={api_key}"
-        data = await fetch_data(session, url, symbol, rate_limiter)
+        data = await fmp.get_key_metrics_ttm(symbol)
         if data:
             await save_json(symbol, 'ttm', 'key-metrics', data)
 
         # Fetch owner earnings data
-        owner_earnings_url = f"https://financialmodelingprep.com/api/v4/owner_earnings?symbol={symbol}&apikey={api_key}"
-        owner_earnings_data = await fetch_data(session, owner_earnings_url, symbol, rate_limiter)
+        owner_earnings_data = await fmp.get_owner_earnings(symbol)
         if owner_earnings_data:
             await save_json(symbol, 'quarter', 'owner-earnings', owner_earnings_data)
 
